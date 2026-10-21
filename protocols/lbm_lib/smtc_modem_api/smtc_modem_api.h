@@ -593,6 +593,17 @@ smtc_modem_return_code_t smtc_modem_get_region( uint8_t stack_id, smtc_modem_reg
 smtc_modem_return_code_t smtc_modem_join_network( uint8_t stack_id );
 
 /**
+ * @brief Fork extension: let the application schedule individual Join attempts.
+ *
+ * Configure before joining. When enabled, each join_network request schedules
+ * exactly one attempt without random scheduling jitter. A failed attempt emits
+ * JOINFAIL, returns the stack to NOT_JOINED and does not enqueue another Join.
+ * The default is false (upstream automatic retries). MAC-layer Join backoff
+ * remains controlled separately by set_join_duty_cycle_backoff_bypass().
+ */
+smtc_modem_return_code_t smtc_modem_set_join_single_attempt( uint8_t stack_id, bool enable );
+
+/**
  * @brief Request a LoRaWAN uplink
  *
  * @remark LoRaWAN NbTrans parameter can be set in mobile and custom ADR modes with @ref smtc_modem_set_nb_trans

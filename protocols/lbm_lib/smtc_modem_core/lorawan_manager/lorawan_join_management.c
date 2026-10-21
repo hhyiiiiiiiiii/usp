@@ -80,6 +80,9 @@
  * --- PRIVATE VARIABLES -------------------------------------------------------
  */
 
+/* Opt-in application-controlled retries; retain upstream behavior by default. */
+static bool single_attempt_join[NUMBER_OF_STACKS];
+
 /*
  * -----------------------------------------------------------------------------
  * --- PRIVATE FUNCTIONS DECLARATION -------------------------------------------
@@ -145,6 +148,12 @@ void lorawan_join_remove_task( uint8_t stack_id )
     modem_supervisor_remove_task( JOIN_TASK + ( NUMBER_OF_TASKS * stack_id ) );
 }
 
+void lorawan_join_set_single_attempt( uint8_t stack_id, bool enable )
+{
+    IS_VALID_STACK_ID( stack_id );
+    single_attempt_join[stack_id] = enable;
+}
+
 /*
  * -----------------------------------------------------------------------------
  * --- PRIVATE FUNCTIONS DEFINITION --------------------------------------------
@@ -184,16 +193,20 @@ static void lorawan_join_management_service_on_update( void* context )
     }
     else
     {
-        lorawan_api_set_join_status( STACK_ID_CURRENT_TASK, JOINING );
+        lorawan_api_set_join_status( STACK_ID_CURRENT_TASK,
+                                     single_attempt_join[STACK_ID_CURRENT_TASK] ? NOT_JOINED : JOINING );
         if( task_manager->modem_task[VIRTUAL_TASK_ID].task_enabled == true )
         {
-            if( task_manager->modem_task[VIRTUAL_TASK_ID].task_context == SUCCESS_TO_LAUNCH_JOIN )
+            if( single_attempt_join[STACK_ID_CURRENT_TASK] == false )
             {
-                lorawan_join_internal_add_task( STACK_ID_CURRENT_TASK, smtc_modem_hal_get_time_in_s( ) );
-            }
-            else
-            {
-                lorawan_join_internal_add_task( STACK_ID_CURRENT_TASK, smtc_modem_hal_get_time_in_s( ) + 120 );
+                if( task_manager->modem_task[VIRTUAL_TASK_ID].task_context == SUCCESS_TO_LAUNCH_JOIN )
+                {
+                    lorawan_join_internal_add_task( STACK_ID_CURRENT_TASK, smtc_modem_hal_get_time_in_s( ) );
+                }
+                else
+                {
+                    lorawan_join_internal_add_task( STACK_ID_CURRENT_TASK, smtc_modem_hal_get_time_in_s( ) + 120 );
+                }
             }
             increment_asynchronous_msgnumber( SMTC_MODEM_EVENT_JOINFAIL, 0, STACK_ID_CURRENT_TASK );
         }
@@ -214,6 +227,16 @@ static void lorawan_join_internal_add_task( uint8_t stack_id, uint32_t current_t
     task_join.id          = JOIN_TASK + ( NUMBER_OF_TASKS * stack_id );
     task_join.stack_id    = stack_id;
     task_join.priority    = TASK_MEDIUM_HIGH_PRIORITY;
+
+    if( single_attempt_join[stack_id] == true )
+    {
+        /* The caller controls retry timing; do not add the automatic 0..5 s jitter.
+         * MAC-layer backoff is still controlled by its separate public API.
+         */
+        task_join.time_to_execute_s = current_time_s;
+        SMTC_MODEM_HAL_PANIC_ON_FAILURE( modem_supervisor_add_task( &task_join ) == TASK_VALID );
+        return;
+    }
 
     task_join.time_to_execute_s = smtc_modem_hal_get_random_nb_in_range( 0, 5 );
 

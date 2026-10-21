@@ -104,6 +104,9 @@ void lorawan_join_add_task( uint8_t stack_id );
  */
 void lorawan_join_remove_task( uint8_t stack_id );
 
+/** Enable a single Join per request, without automatic retry or scheduling jitter. */
+void lorawan_join_set_single_attempt( uint8_t stack_id, bool enable );
+
 /**
  * @brief Init a new LoRaWAN join_management services object
  *

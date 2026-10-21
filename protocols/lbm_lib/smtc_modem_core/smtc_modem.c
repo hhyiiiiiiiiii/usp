@@ -801,6 +801,17 @@ smtc_modem_return_code_t smtc_modem_join_network( uint8_t stack_id )
 
     return return_code;
 }
+smtc_modem_return_code_t smtc_modem_set_join_single_attempt( uint8_t stack_id, bool enable )
+{
+    RETURN_BUSY_IF_TEST_MODE( );
+    if( stack_id >= NUMBER_OF_STACKS )
+    {
+        return SMTC_MODEM_RC_INVALID_STACK_ID;
+    }
+    lorawan_join_set_single_attempt( stack_id, enable );
+    return SMTC_MODEM_RC_OK;
+}
+
 smtc_modem_return_code_t smtc_modem_request_uplink( uint8_t stack_id, uint8_t f_port, bool confirmed,
                                                     const uint8_t* payload, uint8_t payload_length )
 {
